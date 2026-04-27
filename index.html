@@ -4,8 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Inventario Pro</title>
+    
     <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Tus datos de configuración
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaTQbZx37HBCJRGrzyVhJRFUXCPEqDjx4",
+            authDomain: "inventario-oficina-fb1ba.firebaseapp.com",
+            projectId: "inventario-oficina-fb1ba",
+            storageBucket: "inventario-oficina-fb1ba.firebasestorage.app",
+            messagingSenderId: "585707876310",
+            appId: "1:585707876310:web:95064d6b1a45e9bd113e77"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const inventarioRef = collection(db, "productos");
+
+        // Escuchar cambios en tiempo real desde la nube
+        const q = query(inventarioRef);
+        onSnapshot(q, (snapshot) => {
+            const tempInventario = [];
+            snapshot.forEach((docSnap) => {
+                // Guardamos el ID único del documento de Firebase junto con los datos
+                tempInventario.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            window.inventario = tempInventario; // Lo guardamos en una variable global
+            if (typeof actualizarTabla === "function") {
+                actualizarTabla(); // Actualiza la tabla visualmente
+            }
+        });
+
+        // Funciones para guardar y actualizar en la nube (disponibles para el resto del código)
+        window.guardarEnNube = async (producto) => {
+            try {
+                await addDoc(inventarioRef, producto);
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                alert("Error al conectar con Firebase. Asegúrate de haber puesto la base de datos en 'Modo de Prueba'.");
+            }
+        };
+
+        window.actualizarEnNube = async (idDocumento, datosNuevos) => {
+            try {
+                const docRef = doc(db, "productos", idDocumento);
+                await updateDoc(docRef, datosNuevos);
+            } catch (error) {
+                console.error("Error al actualizar:", error);
+            }
+        };
+    </script>
+
     <style>
+        /* === ESTILOS ELEGANTES === */
         :root {
             --primary: #2563eb;
             --primary-hover: #1d4ed8;
@@ -19,86 +75,27 @@
             --border: #e2e8f0;
         }
 
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: var(--background);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--background); color: var(--text-main); margin: 0; padding: 0; }
 
-        /* Barra de Navegación */
-        .navbar {
-            background: var(--surface);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            display: none; 
-            justify-content: center;
-            padding: 1rem;
-            gap: 1rem;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
+        .navbar { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: none; justify-content: center; padding: 1rem; gap: 1rem; position: sticky; top: 0; z-index: 100; }
+        .tab-btn { background: transparent; border: none; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; color: var(--text-main); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
 
-        .tab-btn {
-            background: transparent;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-main);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-
-        .view-section {
-            display: none;
-            background: var(--surface);
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-            padding: 2rem;
-            animation: fadeIn 0.3s ease;
-        }
-
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+        .view-section { display: none; background: var(--surface); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); padding: 2rem; animation: fadeIn 0.3s ease; }
         .view-section.active { display: block; }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         h1, h2 { margin-top: 0; font-weight: 700; }
         h2 { font-size: 1.25rem; margin-bottom: 1.5rem; color: var(--primary); border-bottom: 2px solid var(--background); padding-bottom: 0.5rem;}
-
         .section-box { margin-bottom: 2rem; }
 
         .input-group { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
-        input { 
-            flex: 1; padding: 0.8rem; border: 1px solid var(--border); 
-            border-radius: 8px; outline: none; min-width: 150px; font-size: 1rem;
-        }
+        input { flex: 1; padding: 0.8rem; border: 1px solid var(--border); border-radius: 8px; outline: none; min-width: 150px; font-size: 1rem; }
         input:focus { border-color: var(--primary); }
 
-        button {
-            padding: 0.8rem 1.2rem; border-radius: 8px; border: none;
-            cursor: pointer; font-weight: 600; transition: 0.2s;
-            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-            font-size: 1rem;
-        }
-
+        button { padding: 0.8rem 1.2rem; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 1rem; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: #10b981; color: white; }
         .btn-danger { background: var(--danger); color: white; }
@@ -110,38 +107,23 @@
         th { color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; }
         .img-preview { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: #eee; }
 
-        .modal-overlay {
-            display: none; position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);
-            z-index: 1000; align-items: center; justify-content: center;
-        }
-        .modal {
-            background: white; padding: 2rem; border-radius: 16px;
-            width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-        }
-
-        .reader-container { 
-            width: 100%; 
-            border-radius: 12px; 
-            overflow: hidden; 
-            margin-bottom: 1rem;
-            display: none;
-        }
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal { background: white; padding: 2rem; border-radius: 16px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
         
-        .order-item {
-            display: flex; justify-content: space-between; align-items: center; padding: 0.75rem;
-            border-bottom: 1px solid var(--border); background: var(--surface); border-radius: 8px; margin-bottom: 0.5rem;
-        }
+        .reader-container { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 1rem; display: none; }
+        .order-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border); background: var(--surface); border-radius: 8px; margin-bottom: 0.5rem; }
 
-        #vista-login {
-            max-width: 400px;
-            margin: 10vh auto;
-            text-align: center;
-        }
+        #vista-login { max-width: 400px; margin: 10vh auto; text-align: center; }
         #vista-login h1 { color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem; }
         #vista-login p { color: var(--text-muted); margin-bottom: 2rem; }
         #vista-login .input-group { flex-direction: column; gap: 1rem; }
+
+        /* Buscador */
+        .autocomplete-wrapper { position: relative; width: 100%; margin-bottom: 1.5rem; }
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 10; display: none; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .autocomplete-item { padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--background); display: flex; align-items: center; gap: 1rem; transition: background 0.2s; }
+        .autocomplete-item:hover { background-color: var(--background); }
+        .autocomplete-img { width: 35px; height: 35px; border-radius: 6px; object-fit: cover; background: #eee; }
     </style>
 </head>
 <body>
@@ -155,7 +137,7 @@
 
     <div id="vista-login" class="view-section active">
         <h1>Bienvenido</h1>
-        <p>Ingresa tus datos para acceder al sistema. Se guardarán en este dispositivo.</p>
+        <p>Ingresa tus datos. Estos se adjuntarán a tus pedidos.</p>
         <div class="input-group">
             <input type="text" id="login-name" placeholder="👤 Tu Nombre y Apellido">
             <input type="tel" id="login-phone" placeholder="📱 Tu Número de Teléfono">
@@ -168,11 +150,8 @@
     <div id="vista-inventario" class="view-section">
         <div class="section-box">
             <h2>Añadir Nuevo Producto</h2>
-            
             <div id="reader-registro" class="reader-container"></div>
-            <button type="button" id="btn-cancelar-escaneo-reg" class="btn-danger" style="display:none; width:100%; margin-bottom: 1rem;" onclick="detenerCamara()">
-                ❌ Cancelar Escáner
-            </button>
+            <button type="button" id="btn-cancelar-escaneo-reg" class="btn-danger" style="display:none; width:100%; margin-bottom: 1rem;" onclick="detenerCamara()">❌ Cancelar Escáner</button>
 
             <div class="input-group">
                 <input type="text" id="reg-barcode" placeholder="Código de barras">
@@ -184,25 +163,20 @@
                 <input type="text" id="reg-name" placeholder="Nombre del producto">
                 <input type="number" id="reg-qty" placeholder="Cantidad inicial">
             </div>
-            <div id="photo-status" style="font-size: 0.85rem; color: var(--success); margin-bottom: 1rem; display:none; font-weight: 600;">✓ Foto procesada y optimizada</div>
+            <div id="photo-status" style="font-size: 0.85rem; color: var(--success); margin-bottom: 1rem; display:none; font-weight: 600;">✓ Foto procesada</div>
             <div class="input-group">
-                <button type="button" class="btn-primary" style="flex:2" onclick="guardarNuevoProducto()">Guardar Producto</button>
+                <button type="button" class="btn-primary" style="flex:2" onclick="guardarNuevoProducto()">Guardar en la Nube</button>
                 <button type="button" class="btn-danger" onclick="limpiarRegistro()">Borrar</button>
             </div>
         </div>
 
         <div class="section-box">
-            <h2>Stock Actual</h2>
+            <h2>Stock en la Nube ☁️</h2>
             <table>
-                <thead>
-                    <tr>
-                        <th>Imagen</th>
-                        <th>Código</th>
-                        <th>Producto</th>
-                        <th>Cant.</th>
-                    </tr>
-                </thead>
-                <tbody id="inventory-list"></tbody>
+                <thead><tr><th>Imagen</th><th>Código</th><th>Producto</th><th>Cant.</th></tr></thead>
+                <tbody id="inventory-list">
+                    <tr><td colspan="4" style="text-align:center; color:gray;">Cargando inventario...</td></tr>
+                </tbody>
             </table>
         </div>
     </div>
@@ -210,7 +184,7 @@
     <div id="vista-gestionar" class="view-section">
         <h2>Centro de Operaciones</h2>
         <p style="color: var(--text-main); margin-bottom: 2rem;">Realiza solicitudes de abastecimiento para tu oficina.</p>
-        <button type="button" class="btn-success" style="width: 100%; padding: 1.5rem; font-size: 1.25rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);" onclick="abrirModalPedido()">
+        <button type="button" class="btn-success" style="width: 100%; padding: 1.5rem; font-size: 1.25rem; border-radius: 12px;" onclick="abrirModalPedido()">
             🛒 Crear Nuevo Pedido
         </button>
     </div>
@@ -222,17 +196,22 @@
         <h2 style="margin-top: 0; color: #0f172a;">Realizar Pedido</h2>
         
         <div class="input-group" style="margin-bottom: 1.5rem;">
-            <input type="text" id="ped-oficina" placeholder="🏢 Nombre de la Oficina que solicita" style="border-color: var(--primary); background: #f8fafc;">
+            <input type="text" id="ped-oficina" placeholder="🏢 Nombre de la Oficina" style="border-color: var(--primary); background: #f8fafc;">
         </div>
 
         <div id="reader-pedido" class="reader-container"></div>
-        <button type="button" class="btn-secondary" onclick="iniciarEscaneoPedido()" style="width:100%; margin-bottom: 1.5rem;">
-            🔍 Escanear Código del Producto
-        </button>
+        <button type="button" class="btn-secondary" onclick="iniciarEscaneoPedido()" style="width:100%; margin-bottom: 1rem;">📷 Escanear Código</button>
+
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">— O BUSCAR MANUALMENTE —</div>
+
+        <div class="autocomplete-wrapper">
+            <input type="text" id="ped-search" placeholder="🔍 Buscar por nombre o código..." oninput="filtrarBuscador()" style="width: 100%; box-sizing: border-box;">
+            <div id="search-results" class="autocomplete-list"></div>
+        </div>
 
         <div class="input-group">
-            <input type="text" id="ped-barcode" placeholder="Código escaneado" readonly style="background: #f1f5f9;">
-            <input type="text" id="ped-name" placeholder="Producto encontrado" readonly style="background: #f1f5f9;">
+            <input type="text" id="ped-barcode" placeholder="Código" readonly style="background: #f1f5f9;">
+            <input type="text" id="ped-name" placeholder="Producto" readonly style="background: #f1f5f9;">
         </div>
         <div id="ped-img-cont" style="text-align:center; margin-bottom:1rem"></div>
         
@@ -250,43 +229,32 @@
             <div id="items-pedido"></div>
         </div>
 
-        <button type="button" class="btn-success" style="width:100%; padding: 1rem;" onclick="enviarWhatsApp()">
-            📲 Enviar Pedido
-        </button>
-        <button type="button" class="btn-danger" style="width:100%; margin-top:0.75rem; background:transparent; color:var(--danger); border: 1px solid var(--danger);" onclick="cerrarModalPedido()">
-            Cancelar y Cerrar
-        </button>
+        <button type="button" class="btn-success" style="width:100%; padding: 1rem;" onclick="enviarWhatsApp()">📲 Enviar Pedido por WhatsApp</button>
+        <button type="button" class="btn-danger" style="width:100%; margin-top:0.75rem; background:transparent; color:var(--danger); border: 1px solid var(--danger);" onclick="cerrarModalPedido()">Cerrar</button>
     </div>
 </div>
 
 <script>
-    let inventario = [];
+    // Variables globales
+    window.inventario = []; // Se llena automáticamente desde Firebase
     let pedidoTemporal = [];
     let fotoActual = null;
     let escanerActivo = null;
     let usuarioApp = null; 
 
-    // --- LÓGICA DE INICIO Y GUARDADO LOCAL ---
+    // --- 1. SESIÓN Y NAVEGACIÓN ---
     window.onload = function() {
         const datosUsuario = localStorage.getItem('miInventario_usuario');
         if (datosUsuario) {
             usuarioApp = JSON.parse(datosUsuario);
             mostrarApp();
         }
-
-        const datosInventario = localStorage.getItem('miInventario_datos');
-        if (datosInventario) {
-            inventario = JSON.parse(datosInventario);
-            actualizarTabla();
-        }
     };
 
     function iniciarSesion() {
         const nombre = document.getElementById('login-name').value.trim();
         const telefono = document.getElementById('login-phone').value.trim();
-
-        if (!nombre || !telefono) return alert("❌ Ingresa tu nombre y número de teléfono.");
-
+        if (!nombre || !telefono) return alert("❌ Ingresa tu nombre y teléfono.");
         usuarioApp = { nombre: nombre, telefono: telefono };
         localStorage.setItem('miInventario_usuario', JSON.stringify(usuarioApp));
         mostrarApp();
@@ -299,29 +267,20 @@
         document.getElementById('btn-tab-inv').classList.add('active');
     }
 
-    function guardarDatosInventario() {
-        try {
-            localStorage.setItem('miInventario_datos', JSON.stringify(inventario));
-        } catch (e) {
-            alert("⚠️ Límite de memoria alcanzado. Algunas fotos podrían no guardarse.");
-        }
+    function cambiarVista(idVista, btn) {
+        detenerCamara(); 
+        document.querySelectorAll('.view-section').forEach(vista => vista.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(boton => boton.classList.remove('active'));
+        document.getElementById(idVista).classList.add('active');
+        btn.classList.add('active');
     }
 
-    // --- LÓGICA DE LA CÁMARA (ESCANER) ---
+    // --- 2. CÁMARA ---
     function detenerCamara() {
         if (escanerActivo) {
-            escanerActivo.stop().then(() => {
-                escanerActivo.clear();
-                escanerActivo = null;
-                ocultarUIEscaneo();
-            }).catch(err => {
-                escanerActivo.clear();
-                escanerActivo = null;
-                ocultarUIEscaneo();
-            });
-        } else {
-            ocultarUIEscaneo();
-        }
+            escanerActivo.stop().then(() => { escanerActivo.clear(); escanerActivo = null; ocultarUIEscaneo(); })
+            .catch(() => { escanerActivo.clear(); escanerActivo = null; ocultarUIEscaneo(); });
+        } else { ocultarUIEscaneo(); }
     }
 
     function ocultarUIEscaneo() {
@@ -338,109 +297,89 @@
         }
         const contenedor = document.getElementById(idContenedor);
         contenedor.style.display = 'block';
-
-        if(idContenedor === 'reader-registro') {
-            document.getElementById('btn-cancelar-escaneo-reg').style.display = 'block';
-        }
+        if(idContenedor === 'reader-registro') document.getElementById('btn-cancelar-escaneo-reg').style.display = 'block';
 
         escanerActivo = new Html5Qrcode(idContenedor);
         escanerActivo.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: { width: 250, height: 150 } },
-            (textoDecodificado) => {
-                document.getElementById(idInputDestino).value = textoDecodificado;
+            { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
+            (texto) => {
+                document.getElementById(idInputDestino).value = texto;
                 detenerCamara();
-                if(callbackAdicional) callbackAdicional(textoDecodificado);
-            },
-            (errorFrame) => {}
+                if(callbackAdicional) callbackAdicional(texto);
+            }, (error) => {}
         ).catch(err => {
-            ocultarUIEscaneo();
-            alert("❌ Error al acceder a la cámara. Revisa los permisos.");
+            ocultarUIEscaneo(); alert("❌ Error al acceder a la cámara.");
         });
     }
 
     function iniciarEscaneoPedido() {
-        iniciarEscaneo('reader-pedido', 'ped-barcode', function(codigo) {
-            buscarProductoEnInventario(codigo);
-        });
+        iniciarEscaneo('reader-pedido', 'ped-barcode', (codigo) => buscarProductoEnInventario(codigo));
     }
 
-    function cambiarVista(idVista, btn) {
-        detenerCamara(); 
-        document.querySelectorAll('.view-section').forEach(vista => vista.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(boton => boton.classList.remove('active'));
-        document.getElementById(idVista).classList.add('active');
-        btn.classList.add('active');
-    }
-
-    // --- NUEVO SISTEMA DE COMPRESIÓN DE FOTOS ---
+    // --- 3. PROCESAMIENTO DE IMAGEN ---
     function previsualizarFoto(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
-            
             reader.onload = function(e) {
-                // Creamos una imagen temporal en memoria
                 const img = new Image();
                 img.onload = function() {
-                    // Creamos un lienzo (canvas) para redimensionar la foto
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 300; // Tamaño máximo en píxeles
-                    const MAX_HEIGHT = 300;
-                    let width = img.width;
-                    let height = img.height;
-
-                    // Lógica para achicar la imagen manteniendo la proporción
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // Convertimos la imagen ya pequeña a texto comprimido (JPEG calidad 70%)
-                    fotoActual = canvas.toDataURL('image/jpeg', 0.7);
-                    
+                    const MAX = 300; let w = img.width, h = img.height;
+                    if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } } 
+                    else { if (h > MAX) { w *= MAX / h; h = MAX; } }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    fotoActual = canvas.toDataURL('image/jpeg', 0.6); // Comprimido
                     document.getElementById('photo-status').style.display = 'block';
                 };
                 img.src = e.target.result;
             };
-            
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    function guardarNuevoProducto() {
+    // --- 4. LÓGICA CON FIREBASE ---
+    async function guardarNuevoProducto() {
         const code = document.getElementById('reg-barcode').value.trim();
         const name = document.getElementById('reg-name').value.trim();
         const qty = document.getElementById('reg-qty').value.trim();
 
         if(!code || !name || !qty) return alert("Completa el código, nombre y cantidad.");
 
-        inventario.push({ code, name, qty, img: fotoActual || '' });
-        actualizarTabla();
-        guardarDatosInventario(); 
+        // Buscamos si ya existe en Firebase (basado en la variable global que se sincroniza)
+        const existente = window.inventario.find(p => p.code === code);
+        
+        if (existente) {
+            // Si existe, calculamos la nueva cantidad y actualizamos en la nube
+            const nuevaCantidad = parseInt(existente.qty) + parseInt(qty);
+            let datosActualizados = { qty: nuevaCantidad };
+            if(fotoActual) datosActualizados.img = fotoActual; // Actualiza foto si tomó una nueva
+            
+            await window.actualizarEnNube(existente.id, datosActualizados);
+            alert("✅ Producto actualizado en la nube. Cantidad sumada al stock existente.");
+        } else {
+            // Si no existe, creamos un documento nuevo en la nube
+            await window.guardarEnNube({ code: code, nombre: name, qty: parseInt(qty), img: fotoActual || '' });
+            alert("✅ Producto nuevo guardado en la nube.");
+        }
+        
         limpiarRegistro();
     }
 
+    // Esta función es llamada automáticamente por Firebase cuando hay cambios
     function actualizarTabla() {
         const tbody = document.getElementById('inventory-list');
         tbody.innerHTML = '';
-        inventario.forEach((p) => {
+        if(window.inventario.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:gray;">No hay productos en la base de datos</td></tr>';
+            return;
+        }
+        window.inventario.forEach((p) => {
             tbody.innerHTML += `
                 <tr>
                     <td><img src="${p.img || 'https://via.placeholder.com/50?text=No+Img'}" class="img-preview"></td>
                     <td><strong>${p.code}</strong></td>
-                    <td>${p.name}</td>
+                    <td>${p.nombre}</td>
                     <td><span style="background: var(--background); padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: bold;">${p.qty}</span></td>
                 </tr>
             `;
@@ -456,29 +395,58 @@
         detenerCamara();
     }
 
-    // --- LÓGICA DE PEDIDOS ---
+    // --- 5. PEDIDOS Y BUSCADOR ---
     function abrirModalPedido() {
         document.getElementById('modal-pedido').style.display = 'flex';
         pedidoTemporal = [];
         actualizarListaVisualPedido();
         document.getElementById('ped-oficina').value = '';
+        resetFormPedido();
+    }
+    function cerrarModalPedido() { document.getElementById('modal-pedido').style.display = 'none'; detenerCamara(); }
+
+    function filtrarBuscador() {
+        const busqueda = document.getElementById('ped-search').value.toLowerCase();
+        const contenedor = document.getElementById('search-results');
+        contenedor.innerHTML = '';
+        if (busqueda.length === 0) { contenedor.style.display = 'none'; return; }
+
+        const resultados = window.inventario.filter(p => p.nombre.toLowerCase().includes(busqueda) || p.code.toLowerCase().includes(busqueda));
+        if (resultados.length === 0) {
+            contenedor.innerHTML = '<div style="padding: 1rem; color: var(--text-muted); text-align: center;">No encontrado</div>';
+            contenedor.style.display = 'block'; return;
+        }
+
+        resultados.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.onclick = function() { seleccionarDesdeBuscador(p.code); };
+            div.innerHTML = `<img src="${p.img || 'https://via.placeholder.com/50?text=No+Img'}" class="autocomplete-img"><div><strong style="display:block; color:var(--text-main); font-size: 0.95rem;">${p.nombre}</strong><small style="color:var(--text-muted); font-size: 0.8rem;">Cód: ${p.code}</small></div>`;
+            contenedor.appendChild(div);
+        });
+        contenedor.style.display = 'block';
     }
 
-    function cerrarModalPedido() {
-        document.getElementById('modal-pedido').style.display = 'none';
-        detenerCamara();
+    function seleccionarDesdeBuscador(codigo) {
+        document.getElementById('search-results').style.display = 'none';
+        document.getElementById('ped-search').value = ''; 
+        document.getElementById('ped-barcode').value = codigo;
+        buscarProductoEnInventario(codigo);
     }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.autocomplete-wrapper')) document.getElementById('search-results').style.display = 'none';
+    });
 
     function buscarProductoEnInventario(codigo) {
-        const encontrado = inventario.find(p => p.code === codigo);
+        const encontrado = window.inventario.find(p => p.code === codigo);
         if(encontrado) {
-            document.getElementById('ped-name').value = encontrado.name;
-            if(encontrado.img) {
-                document.getElementById('ped-img-cont').innerHTML = `<img src="${encontrado.img}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
-            }
+            document.getElementById('ped-name').value = encontrado.nombre;
+            if(encontrado.img) document.getElementById('ped-img-cont').innerHTML = `<img src="${encontrado.img}" style="width:80px; height:80px; object-fit:cover; border-radius:8px;">`;
+            else document.getElementById('ped-img-cont').innerHTML = '';
             document.getElementById('ped-qty').focus();
         } else {
-            alert("⚠️ Código de barras no registrado en inventario.");
+            alert("⚠️ Código no registrado en la base de datos.");
             resetFormPedido();
         }
     }
@@ -487,7 +455,6 @@
         const code = document.getElementById('ped-barcode').value;
         const name = document.getElementById('ped-name').value;
         const qty = document.getElementById('ped-qty').value;
-
         if(!name || !qty || qty <= 0) return alert("Busca un producto e ingresa una cantidad.");
 
         pedidoTemporal.push({ code, name, qty });
@@ -498,21 +465,9 @@
     function actualizarListaVisualPedido() {
         const cont = document.getElementById('items-pedido');
         cont.innerHTML = '';
-        if(pedidoTemporal.length === 0) {
-            cont.innerHTML = '<span style="color: var(--text-muted); font-size: 0.9rem;">La lista está vacía.</span>';
-            return;
-        }
-
+        if(pedidoTemporal.length === 0) { cont.innerHTML = '<span style="color: gray;">Lista vacía.</span>'; return; }
         pedidoTemporal.forEach((item) => {
-            cont.innerHTML += `
-                <div class="order-item">
-                    <div>
-                        <strong style="display:block; color: var(--text-main);">${item.name}</strong>
-                        <small style="color: var(--text-muted);">Cod: ${item.code}</small>
-                    </div>
-                    <div style="background: white; padding: 0.25rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); font-weight: bold;">x${item.qty}</div>
-                </div>
-            `;
+            cont.innerHTML += `<div class="order-item"><div><strong style="display:block;">${item.name}</strong><small>Cod: ${item.code}</small></div><div style="background: white; padding: 0.25rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); font-weight: bold;">x${item.qty}</div></div>`;
         });
     }
 
@@ -520,26 +475,20 @@
         document.getElementById('ped-barcode').value = '';
         document.getElementById('ped-name').value = '';
         document.getElementById('ped-qty').value = '';
+        document.getElementById('ped-search').value = '';
         document.getElementById('ped-img-cont').innerHTML = '';
+        document.getElementById('search-results').style.display = 'none';
         detenerCamara();
     }
 
+    // --- 6. WHATSAPP ---
     function enviarWhatsApp() {
         const oficina = document.getElementById('ped-oficina').value.trim();
         if(!oficina) return alert("❌ Indica el nombre de la oficina.");
         if(pedidoTemporal.length === 0) return alert("❌ Agrega productos antes de enviar.");
 
-        let mensaje = `📦 *NUEVO PEDIDO DE INVENTARIO* 📦\n`;
-        mensaje += `━━━━━━━━━━━━━━━━━━━━━\n`;
-        mensaje += `👤 *Remitente:* ${usuarioApp.nombre}\n`;
-        mensaje += `📞 *Teléfono:* ${usuarioApp.telefono}\n`;
-        mensaje += `🏢 *Oficina:* ${oficina}\n\n`;
-        mensaje += `📋 *LISTA DE ARTÍCULOS:*\n\n`;
-
-        pedidoTemporal.forEach((item) => {
-            mensaje += `▪️ *${item.name}*\n   └ Código: ${item.code}\n   └ 📦 *Cantidad:* ${item.qty}\n\n`;
-        });
-
+        let mensaje = `📦 *NUEVO PEDIDO DE INVENTARIO* 📦\n━━━━━━━━━━━━━━━━━━━━━\n👤 *Remitente:* ${usuarioApp.nombre}\n📞 *Teléfono:* ${usuarioApp.telefono}\n🏢 *Oficina:* ${oficina}\n\n📋 *LISTA DE ARTÍCULOS:*\n\n`;
+        pedidoTemporal.forEach((item) => { mensaje += `▪️ *${item.name}*\n   └ Código: ${item.code}\n   └ 📦 *Cantidad:* ${item.qty}\n\n`; });
         mensaje += `━━━━━━━━━━━━━━━━━━━━━\n⏰ _Generado automáticamente_`;
 
         window.open(`https://wa.me/14163002463?text=${encodeURIComponent(mensaje)}`, '_blank');
